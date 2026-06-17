@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeStore, extractData } from '@/store'
+import { lastLogged } from '@/store/selectors'
 import { CURRENT_VERSION } from '@/lib/migrations'
 import { STORAGE_KEY, type StorageAdapter } from '@/lib/storage'
 
@@ -202,6 +203,36 @@ describe('session start inheritance', () => {
     // FROM-DEST-WK1 — which copyFrom alone would NOT supply — proves precedence.
     expect(names).toContain('FROM-DEST-WK1')
     expect(names).toEqual(['FROM-SOURCE', 'FROM-DEST-WK1'])
+  })
+})
+
+describe('logging across weeks (Phase 5 core loop)', () => {
+  it('start → log sets → next week inherits and lastLogged sees prior week', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const pid = store.getState().addPhase({ name: 'P', seed: true })
+
+    // Week 1: log a top set on the first exercise
+    const w1 = store.getState().startSession({ phaseId: pid, dayId: 'pull', week: 1 })
+    const s1 = store.getState().sessions.find((s) => s.id === w1)!
+    const exId = s1.exercises[0].id
+    store.getState().setField(w1, exId, 0, 'w', 200)
+    store.getState().setField(w1, exId, 0, 'r', 5)
+
+    // Week 2 inherits the same exercises (ids preserved)
+    const w2 = store.getState().startSession({ phaseId: pid, dayId: 'pull', week: 2 })
+    const s2 = store.getState().sessions.find((s) => s.id === w2)!
+    expect(s2.exercises.map((e) => e.id)).toContain(exId)
+
+    // lastLogged for week 2 resolves to the week-1 entry
+    const last = lastLogged(
+      { phases: [], sessions: store.getState().sessions },
+      pid,
+      'pull',
+      exId,
+      2,
+    )
+    expect(last?.week).toBe(1)
+    expect(last?.entry.sets[0]).toEqual({ w: 200, r: 5 })
   })
 })
 

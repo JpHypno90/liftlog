@@ -50,6 +50,18 @@ export function daysUntil(dateStr: string): number {
   return diffDays(dateStr, todayStr())
 }
 
+/** Human-friendly date for display, e.g. "Mon 15 Jun 2026". */
+export function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y || 1970, (m || 1) - 1, d || 1)
+  return dt.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 /** Short human countdown to a date: "Today", "1 day", "9 days", "6 wks", "past". */
 export function countdownLabel(dateStr: string): string {
   const d = daysUntil(dateStr)

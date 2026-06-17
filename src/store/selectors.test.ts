@@ -5,6 +5,7 @@ import {
   baseExercisesFor,
   sessionsForPhase,
   sessionsForDay,
+  findSession,
   type DataSlice,
 } from '@/store/selectors'
 import type { Phase, Session } from '@/types'
@@ -62,6 +63,22 @@ describe('lastLogged', () => {
 describe('baseExercisesFor', () => {
   it('returns blank for an unknown phase', () => {
     expect(baseExercisesFor({ phases: [], sessions: [] }, 'missing', 'pull', 1)).toEqual([])
+  })
+})
+
+describe('findSession', () => {
+  const state: DataSlice = {
+    phases: [phase],
+    sessions: [session(1, '2026-01-05'), session(2, '2026-01-12')],
+  }
+
+  it('finds the session for a phase/week/day', () => {
+    expect(findSession(state, 'p1', 2, 'pull')?.id).toBe('s2')
+  })
+
+  it('returns undefined when none matches', () => {
+    expect(findSession(state, 'p1', 5, 'pull')).toBeUndefined()
+    expect(findSession(state, 'p1', 1, 'push')).toBeUndefined()
   })
 })
 

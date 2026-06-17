@@ -1,8 +1,20 @@
-import type { AppData, Day, Entry, Exercise, Phase } from '@/types'
+import type { AppData, Day, Entry, Exercise, Phase, Session } from '@/types'
 import { seedExercises } from '@/lib/defaults'
 
 /** The subset of state the pure selectors read. */
 export type DataSlice = Pick<AppData, 'phases' | 'sessions'>
+
+/** The session for a specific phase/week/day, if one exists. */
+export function findSession(
+  state: DataSlice,
+  phaseId: string,
+  week: number,
+  dayId: string,
+): Session | undefined {
+  return state.sessions.find(
+    (s) => s.phaseId === phaseId && s.week === week && s.dayId === dayId,
+  )
+}
 
 /** Find a day within a phase by id. */
 export function resolveDay(phase: Phase, dayId: string): Day | undefined {
