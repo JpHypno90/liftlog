@@ -51,6 +51,15 @@ interface Actions {
   removePhase: (id: string) => void
   // sessions
   startSession: (args: { phaseId: string; dayId: string; week: number; date?: string }) => string
+  /** Create or replace the session at phase/week/day with explicit exercises+entries (import). */
+  importSession: (args: {
+    phaseId: string
+    dayId: string
+    week: number
+    date: string
+    exercises: Exercise[]
+    entries: Record<string, Entry>
+  }) => string
   updateSession: (id: string, patch: Partial<Omit<Session, 'id'>>) => void
   removeSession: (id: string) => void
   setSessionDate: (id: string, date: string) => void
@@ -253,6 +262,20 @@ export function makeStore(
           entries,
         }
         set((state) => ({ sessions: [...state.sessions, session] }))
+        return id
+      },
+      importSession: ({ phaseId, dayId, week, date, exercises, entries }) => {
+        const id = uid()
+        const session: Session = { id, phaseId, week, dayId, date, exercises, entries }
+        set((state) => ({
+          sessions: [
+            // replace any existing session at this phase/week/day
+            ...state.sessions.filter(
+              (s) => !(s.phaseId === phaseId && s.week === week && s.dayId === dayId),
+            ),
+            session,
+          ],
+        }))
         return id
       },
       updateSession: (id, patch) => mapSession(id, (s) => ({ ...s, ...patch, id: s.id })),

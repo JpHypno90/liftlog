@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Dumbbell, Download, ChevronRight } from 'lucide-react'
 import { useStore } from '@/store'
 import { findSession } from '@/store/selectors'
@@ -9,6 +9,7 @@ import { WeekStrip } from '@/features/log/WeekStrip'
 import { DayTabs } from '@/features/log/DayTabs'
 import { SessionView } from '@/features/log/SessionView'
 import { WorkoutPreview } from '@/features/log/WorkoutPreview'
+import { ImportModal } from '@/features/import/ImportModal'
 
 export function LogScreen() {
   const activePhaseId = useStore((s) => s.activePhaseId)
@@ -22,6 +23,8 @@ export function LogScreen() {
   const setDay = useStore((s) => s.setDay)
   const setEditing = useStore((s) => s.setEditing)
   const startSession = useStore((s) => s.startSession)
+
+  const [importOpen, setImportOpen] = useState(false)
 
   const phase = phases.find((p) => p.id === activePhaseId) ?? null
   const days = phase?.days ?? []
@@ -112,9 +115,7 @@ export function LogScreen() {
           variant="ghost"
           size="sm"
           aria-label="Import plan"
-          onClick={() => {
-            /* Import arrives in Phase 6 */
-          }}
+          onClick={() => setImportOpen(true)}
         >
           <Download size={16} aria-hidden /> Import
         </Button>
@@ -130,6 +131,15 @@ export function LogScreen() {
           </Button>
           <WorkoutPreview phase={phase} dayId={selectedDay.id} week={selectedWeek} />
         </div>
+      )}
+
+      {importOpen && (
+        <ImportModal
+          phase={phase}
+          initialDayId={selectedDay.id}
+          initialWeek={selectedWeek}
+          onClose={() => setImportOpen(false)}
+        />
       )}
     </section>
   )

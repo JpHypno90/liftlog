@@ -206,6 +206,37 @@ describe('session start inheritance', () => {
   })
 })
 
+describe('importSession (Phase 6)', () => {
+  it('creates then replaces the session at a phase/week/day', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const pid = store.getState().addPhase({ name: 'P' })
+
+    const first = store.getState().importSession({
+      phaseId: pid,
+      dayId: 'pull',
+      week: 2,
+      date: '2026-01-12',
+      exercises: [{ id: 'e1', name: 'Deadlift', scheme: '3×5', cue: '', warmup: false }],
+      entries: { e1: { sets: [{ w: 200, r: 5 }], notes: '', done: false } },
+    })
+    expect(store.getState().sessions).toHaveLength(1)
+    expect(store.getState().sessions[0].entries.e1.sets[0]).toEqual({ w: 200, r: 5 })
+
+    // re-import at the same slot replaces (no duplicate)
+    const second = store.getState().importSession({
+      phaseId: pid,
+      dayId: 'pull',
+      week: 2,
+      date: '2026-01-12',
+      exercises: [{ id: 'e2', name: 'Row', scheme: '4×8', cue: '', warmup: false }],
+      entries: { e2: { sets: [{ w: '', r: 8 }], notes: '', done: false } },
+    })
+    expect(second).not.toBe(first)
+    expect(store.getState().sessions).toHaveLength(1)
+    expect(store.getState().sessions[0].exercises[0].name).toBe('Row')
+  })
+})
+
 describe('logging across weeks (Phase 5 core loop)', () => {
   it('start → log sets → next week inherits and lastLogged sees prior week', () => {
     const store = makeStore(memoryAdapter().adapter)

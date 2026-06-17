@@ -6,6 +6,7 @@ import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
 import { EmptyState } from '@/components/EmptyState'
 import { PhaseEditor } from '@/features/phases/PhaseEditor'
+import { ImportModal } from '@/features/import/ImportModal'
 
 interface PhaseCardProps {
   phase: Phase
@@ -95,8 +96,10 @@ export function PhasesScreen() {
   const setTab = useStore((s) => s.setTab)
 
   const [editor, setEditor] = useState<EditorState>({ open: false })
+  const [importPhaseId, setImportPhaseId] = useState<string | null>(null)
 
   const sorted = [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate))
+  const importPhase = phases.find((p) => p.id === importPhaseId) ?? null
 
   const selectAndLog = (id: string) => {
     selectPhase(id)
@@ -126,9 +129,7 @@ export function PhasesScreen() {
                 compName={competitions.find((c) => c.id === p.compId)?.name ?? null}
                 onSelect={() => selectAndLog(p.id)}
                 onEdit={() => setEditor({ open: true, phaseId: p.id })}
-                onImport={() => {
-                  /* Import arrives in Phase 6 */
-                }}
+                onImport={() => setImportPhaseId(p.id)}
               />
             ))}
           </div>
@@ -140,6 +141,15 @@ export function PhasesScreen() {
 
       {editor.open && (
         <PhaseEditor phaseId={editor.phaseId} onClose={() => setEditor({ open: false })} />
+      )}
+
+      {importPhase && (
+        <ImportModal
+          phase={importPhase}
+          initialDayId={importPhase.days[0]?.id ?? null}
+          initialWeek={1}
+          onClose={() => setImportPhaseId(null)}
+        />
       )}
     </section>
   )
