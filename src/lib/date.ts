@@ -44,3 +44,8 @@ export function mondayOf(dateStr: string): string {
 export function weekIndex(date: string, start: string): number {
   return Math.max(1, Math.floor(diffDays(date, start) / 7) + 1)
 }
+
+/** Whole days from today until `date` (negative if in the past). */
+export function daysUntil(dateStr: string): number {
+  return diffDays(dateStr, todayStr())
+}
