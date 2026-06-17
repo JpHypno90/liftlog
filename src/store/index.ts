@@ -51,6 +51,13 @@ interface Actions {
   removePhase: (id: string) => void
   // sessions
   startSession: (args: { phaseId: string; dayId: string; week: number; date?: string }) => string
+  /** Start a loose session not tied to any phase (phaseId/dayId = ''). */
+  startLooseSession: () => string
+  /** Turn a logged session into Week 1 of a new phase, re-homing it. */
+  createPhaseFromSession: (
+    sessionId: string,
+    args: { name: string; weeks: number; startDate: string; dayName: string },
+  ) => string
   /** Create or replace the session at phase/week/day with explicit exercises+entries (import). */
   importSession: (args: {
     phaseId: string
@@ -263,6 +270,46 @@ export function makeStore(
         }
         set((state) => ({ sessions: [...state.sessions, session] }))
         return id
+      },
+      startLooseSession: () => {
+        const id = uid()
+        const session: Session = {
+          id,
+          phaseId: '',
+          week: 1,
+          dayId: '',
+          date: todayStr(),
+          exercises: [],
+          entries: {},
+        }
+        set((state) => ({ sessions: [...state.sessions, session] }))
+        return id
+      },
+      createPhaseFromSession: (sessionId, { name, weeks, startDate, dayName }) => {
+        const phaseId = uid()
+        const dayId = uid()
+        const phase: Phase = {
+          id: phaseId,
+          name,
+          weeks,
+          startDate,
+          compId: null,
+          copyFrom: null,
+          seed: false,
+          days: [{ id: dayId, name: dayName }],
+        }
+        set((state) => ({
+          phases: [...state.phases, phase],
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, phaseId, dayId, week: 1, date: startDate } : s,
+          ),
+          activePhaseId: phaseId,
+          week: 1,
+          dayId,
+          tab: 'log',
+          editing: false,
+        }))
+        return phaseId
       },
       importSession: ({ phaseId, dayId, week, date, exercises, entries }) => {
         const id = uid()

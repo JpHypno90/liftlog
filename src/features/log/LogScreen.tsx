@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Dumbbell, Download, ChevronRight } from 'lucide-react'
 import { useStore } from '@/store'
 import { findSession } from '@/store/selectors'
-import { addDays, todayStr, weekIndex, countdownLabel } from '@/lib/date'
+import { addDays, todayStr, weekIndex, countdownLabel, formatDate } from '@/lib/date'
 import { Button } from '@/components/Button'
 import { EmptyState } from '@/components/EmptyState'
 import { WeekStrip } from '@/features/log/WeekStrip'
 import { DayTabs } from '@/features/log/DayTabs'
 import { SessionView } from '@/features/log/SessionView'
 import { WorkoutPreview } from '@/features/log/WorkoutPreview'
+import { CreatePhaseModal } from '@/features/log/CreatePhaseModal'
 import { ImportModal } from '@/features/import/ImportModal'
 
 export function LogScreen() {
@@ -23,8 +24,13 @@ export function LogScreen() {
   const setDay = useStore((s) => s.setDay)
   const setEditing = useStore((s) => s.setEditing)
   const startSession = useStore((s) => s.startSession)
+  const startLooseSession = useStore((s) => s.startLooseSession)
 
   const [importOpen, setImportOpen] = useState(false)
+  const [createPhaseFor, setCreatePhaseFor] = useState<string | null>(null)
+
+  // The most recent loose (phaseless) session, if any.
+  const looseSession = sessions.filter((s) => s.phaseId === '').at(-1) ?? null
 
   const phase = phases.find((p) => p.id === activePhaseId) ?? null
   const days = phase?.days ?? []
@@ -45,15 +51,46 @@ export function LogScreen() {
   }, [selectedDayId, selectedWeek, setEditing])
 
   if (!phase || !selectedDay) {
+    const startQuick = () => {
+      startLooseSession()
+      setEditing(true)
+    }
     return (
       <section className="flex flex-col gap-4">
         <h1 className="font-display text-2xl text-text">Log</h1>
-        <EmptyState
-          icon={Dumbbell}
-          title="No training phase yet"
-          text="Create a training phase to start logging sessions."
-          action={<Button onClick={() => setTab('phases')}>Go to Phases</Button>}
-        />
+        {looseSession ? (
+          <>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-card px-4 py-3">
+              <div className="min-w-0">
+                <div className="font-display text-lg text-text">Quick session</div>
+                <div className="text-sm text-muted">Not in a phase · {formatDate(looseSession.date)}</div>
+              </div>
+              <Button size="sm" shine onClick={() => setCreatePhaseFor(looseSession.id)}>
+                Create phase
+              </Button>
+            </div>
+            <SessionView session={looseSession} />
+          </>
+        ) : (
+          <EmptyState
+            icon={Dumbbell}
+            title="No training phase yet"
+            text="Start a quick session now, or create a phase to plan ahead."
+            action={
+              <div className="flex gap-2">
+                <Button shine onClick={startQuick}>
+                  Quick log
+                </Button>
+                <Button variant="ghost" onClick={() => setTab('phases')}>
+                  Go to Phases
+                </Button>
+              </div>
+            }
+          />
+        )}
+        {createPhaseFor && (
+          <CreatePhaseModal sessionId={createPhaseFor} onClose={() => setCreatePhaseFor(null)} />
+        )}
       </section>
     )
   }

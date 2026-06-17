@@ -1,6 +1,6 @@
 import type { SetEntry } from '@/types'
 import { uid } from '@/lib/id'
-import { normalizeScheme } from '@/lib/import/scheme'
+import { normalizeScheme, repsValue } from '@/lib/import/scheme'
 import type { ColMap, ParsedExercise } from '@/lib/import/types'
 
 function leadingNumber(value: string): number | '' {
@@ -45,14 +45,15 @@ export function detectColumns(headers: string[]): ColMap {
 /** Combine a scheme cell with optional separate reps/weight cells. */
 function combineCells(schemeCell: string, repsCell: string, weightCell: string): NormalizedCell {
   const weight = weightCell ? leadingNumber(weightCell) : ''
-  const repsNum = repsCell ? leadingNumber(repsCell) : ''
+  const reps = repsCell.trim()
+  const repsNum = reps ? repsValue(reps) : '' // '' for ranges/distances
 
   // Bare integer scheme cell = a set count (e.g. "Sets" column = 3) + separate reps.
-  if (/^\d+$/.test(schemeCell.trim()) && repsNum !== '') {
+  if (/^\d+$/.test(schemeCell.trim()) && reps !== '') {
     const count = parseInt(schemeCell.trim(), 10)
     if (count >= 1 && count <= 30) {
       return {
-        scheme: `${count}×${repsNum}${weight !== '' ? ` @${weight}kg` : ''}`,
+        scheme: `${count}×${reps}${weight !== '' ? ` @${weight}kg` : ''}`,
         sets: Array.from({ length: count }, () => ({ w: weight, r: repsNum })),
       }
     }
@@ -63,9 +64,9 @@ function combineCells(schemeCell: string, repsCell: string, weightCell: string):
   let sets = norm.sets
 
   if (!sets) {
-    if (repsNum !== '') {
+    if (reps !== '') {
       sets = [{ w: weight, r: repsNum }]
-      scheme = scheme || (weight !== '' ? `${weight}kg × ${repsNum}` : `× ${repsNum}`)
+      scheme = scheme || (weight !== '' ? `${weight}kg × ${reps}` : `× ${reps}`)
     } else if (weight !== '') {
       sets = [{ w: weight, r: '' }]
       scheme = scheme || `${weight}kg`

@@ -9,7 +9,8 @@ import { ExerciseCard } from '@/features/log/ExerciseCard'
 
 export interface SessionViewProps {
   session: Session
-  phase: Phase
+  /** Optional — loose (phaseless) sessions have no phase. */
+  phase?: Phase
 }
 
 export function SessionView({ session }: SessionViewProps) {

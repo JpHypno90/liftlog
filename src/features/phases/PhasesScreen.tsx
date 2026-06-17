@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Layers, Plus, Pencil, Download } from 'lucide-react'
+import { Layers, Plus, Pencil, Download, Trash2, FilePlus } from 'lucide-react'
 import type { Phase } from '@/types'
 import { useStore } from '@/store'
+import { sessionsForPhase } from '@/store/selectors'
 import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
+import { Modal } from '@/components/Modal'
 import { EmptyState } from '@/components/EmptyState'
 import { PhaseEditor } from '@/features/phases/PhaseEditor'
 import { ImportModal } from '@/features/import/ImportModal'
@@ -16,6 +18,7 @@ interface PhaseCardProps {
   onSelect: () => void
   onEdit: () => void
   onImport: () => void
+  onDelete: () => void
 }
 
 function PhaseCard({
@@ -26,6 +29,7 @@ function PhaseCard({
   onSelect,
   onEdit,
   onImport,
+  onDelete,
 }: PhaseCardProps) {
   return (
     <Card
@@ -80,6 +84,17 @@ function PhaseCard({
         >
           <Pencil size={16} aria-hidden /> Edit
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto text-danger"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+        >
+          <Trash2 size={16} aria-hidden /> Delete
+        </Button>
       </div>
     </Card>
   )
@@ -94,12 +109,17 @@ export function PhasesScreen() {
   const activePhaseId = useStore((s) => s.activePhaseId)
   const selectPhase = useStore((s) => s.selectPhase)
   const setTab = useStore((s) => s.setTab)
+  const removePhase = useStore((s) => s.removePhase)
 
   const [editor, setEditor] = useState<EditorState>({ open: false })
   const [importPhaseId, setImportPhaseId] = useState<string | null>(null)
+  const [newImportOpen, setNewImportOpen] = useState(false)
+  const [deletePhaseId, setDeletePhaseId] = useState<string | null>(null)
 
   const sorted = [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate))
   const importPhase = phases.find((p) => p.id === importPhaseId) ?? null
+  const deletePhase = phases.find((p) => p.id === deletePhaseId) ?? null
+  const deleteCount = deletePhase ? sessionsForPhase({ phases, sessions }, deletePhase.id) : 0
 
   const selectAndLog = (id: string) => {
     selectPhase(id)
@@ -114,8 +134,15 @@ export function PhasesScreen() {
         <EmptyState
           icon={Layers}
           title="No phases yet."
-          text="Create a training block to start planning."
-          action={<Button onClick={() => setEditor({ open: true })}>New phase</Button>}
+          text="Create a training block, or import a whole plan to build one."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => setEditor({ open: true })}>New phase</Button>
+              <Button variant="ghost" onClick={() => setNewImportOpen(true)}>
+                <FilePlus size={16} aria-hidden /> Import a plan
+              </Button>
+            </div>
+          }
         />
       ) : (
         <>
@@ -130,12 +157,18 @@ export function PhasesScreen() {
                 onSelect={() => selectAndLog(p.id)}
                 onEdit={() => setEditor({ open: true, phaseId: p.id })}
                 onImport={() => setImportPhaseId(p.id)}
+                onDelete={() => setDeletePhaseId(p.id)}
               />
             ))}
           </div>
-          <Button variant="ghost" onClick={() => setEditor({ open: true })} className="self-start">
-            <Plus size={16} aria-hidden /> New phase
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setEditor({ open: true })} className="self-start">
+              <Plus size={16} aria-hidden /> New phase
+            </Button>
+            <Button variant="ghost" onClick={() => setNewImportOpen(true)} className="self-start">
+              <FilePlus size={16} aria-hidden /> New phase from import
+            </Button>
+          </div>
         </>
       )}
 
@@ -150,6 +183,31 @@ export function PhasesScreen() {
           initialWeek={1}
           onClose={() => setImportPhaseId(null)}
         />
+      )}
+
+      {newImportOpen && <ImportModal onClose={() => setNewImportOpen(false)} />}
+
+      {deletePhase && (
+        <Modal open onClose={() => setDeletePhaseId(null)} title="Delete phase">
+          <p className="text-sm text-text">
+            Delete {deletePhase.name} and its {deleteCount} logged session
+            {deleteCount === 1 ? '' : 's'}? This can&apos;t be undone.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeletePhaseId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                removePhase(deletePhase.id)
+                setDeletePhaseId(null)
+              }}
+            >
+              Delete phase
+            </Button>
+          </div>
+        </Modal>
       )}
     </section>
   )

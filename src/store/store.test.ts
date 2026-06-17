@@ -206,6 +206,47 @@ describe('session start inheritance', () => {
   })
 })
 
+describe('phaseless logging & create-phase-from-session', () => {
+  it('starts a loose session with no phase', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const id = store.getState().startLooseSession()
+    const s = store.getState().sessions.find((x) => x.id === id)!
+    expect(s.phaseId).toBe('')
+    expect(s.dayId).toBe('')
+    expect(s.exercises).toHaveLength(0)
+  })
+
+  it('turns a loose session into Week 1 of a new phase', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const sid = store.getState().startLooseSession()
+    const ex = store.getState().addExercise(sid, { name: 'Axle press' })
+    store.getState().setField(sid, ex, 0, 'w', 90)
+
+    const pid = store.getState().createPhaseFromSession(sid, {
+      name: 'Off-season',
+      weeks: 10,
+      startDate: '2026-06-15',
+      dayName: 'Pull and accessories',
+    })
+
+    const phase = store.getState().phases.find((p) => p.id === pid)!
+    expect(phase.name).toBe('Off-season')
+    expect(phase.days.map((d) => d.name)).toEqual(['Pull and accessories'])
+
+    const session = store.getState().sessions.find((x) => x.id === sid)!
+    expect(session.phaseId).toBe(pid)
+    expect(session.dayId).toBe(phase.days[0].id)
+    expect(session.week).toBe(1)
+    expect(session.date).toBe('2026-06-15')
+    // exercise data is preserved through the re-home
+    expect(session.entries[ex].sets[0]).toEqual({ w: 90, r: '' })
+
+    // the new phase is selected and the Log tab is active
+    expect(store.getState().activePhaseId).toBe(pid)
+    expect(store.getState().tab).toBe('log')
+  })
+})
+
 describe('importSession (Phase 6)', () => {
   it('creates then replaces the session at a phase/week/day', () => {
     const store = makeStore(memoryAdapter().adapter)

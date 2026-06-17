@@ -55,6 +55,33 @@ describe('normalizeScheme', () => {
     expect(normalizeScheme('100kg').sets).toEqual([{ w: 100, r: '' }])
   })
 
+  it('rep range keeps the count but leaves per-set reps blank: "3x12-15"', () => {
+    expect(normalizeScheme('3x12-15')).toEqual({
+      scheme: '3×12-15',
+      sets: [
+        { w: '', r: '' },
+        { w: '', r: '' },
+        { w: '', r: '' },
+      ],
+    })
+  })
+
+  it('distance keeps the count, no rep number: "2x20m"', () => {
+    expect(normalizeScheme('2x20m')).toEqual({
+      scheme: '2×20m',
+      sets: [
+        { w: '', r: '' },
+        { w: '', r: '' },
+      ],
+    })
+  })
+
+  it('bare range / distance → text only, no sets', () => {
+    expect(normalizeScheme('12-15').sets).toBeUndefined()
+    expect(normalizeScheme('20m').sets).toBeUndefined()
+    expect(normalizeScheme('20m').scheme).toBe('20m')
+  })
+
   it('ambiguous text → no sets', () => {
     expect(normalizeScheme('AMRAP')).toEqual({ scheme: 'AMRAP' })
     expect(normalizeScheme('work up to a heavy single').sets).toBeUndefined()

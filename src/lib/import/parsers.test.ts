@@ -112,6 +112,20 @@ describe('parseSheet', () => {
     ])
   })
 
+  it('keeps a rep range from a reps column (no false number)', () => {
+    const rows = [
+      ['Exercise', 'Sets', 'Reps'],
+      ['DB rear delt raise', '3', '12-15'],
+    ]
+    const out = parseSheet(rows, detectColumns(rows[0]), true)
+    expect(out[0].scheme).toBe('3×12-15')
+    expect(out[0].sets).toEqual([
+      { w: '', r: '' },
+      { w: '', r: '' },
+      { w: '', r: '' },
+    ])
+  })
+
   it('respects hasHeader=false', () => {
     const rows = [['Deadlift', '5/5/5']]
     const out = parseSheet(rows, { name: 0, scheme: 1, reps: null, weight: null, cue: null }, false)

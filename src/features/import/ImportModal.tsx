@@ -4,7 +4,7 @@ import type { Day, Entry, Exercise, Phase } from '@/types'
 import { useStore } from '@/store'
 import { findSession } from '@/store/selectors'
 import { uid } from '@/lib/id'
-import { addDays } from '@/lib/date'
+import { addDays, mondayOf, todayStr } from '@/lib/date'
 import { emptyEntry } from '@/lib/defaults'
 import {
   detectColumns,
@@ -21,6 +21,7 @@ import { cn } from '@/lib/cn'
 import { Modal } from '@/components/Modal'
 import { Textarea } from '@/components/Textarea'
 import { Select } from '@/components/Select'
+import { Input } from '@/components/Input'
 import { Stepper } from '@/components/Stepper'
 import { Chip } from '@/components/Chip'
 import { Button } from '@/components/Button'
@@ -43,21 +44,25 @@ const COL_FIELDS: { key: keyof ColMap; label: string }[] = [
 ]
 
 export interface ImportModalProps {
-  phase: Phase
-  initialDayId: string | null
-  initialWeek: number
+  /** Existing phase to import into; omit for "new phase from import" mode. */
+  phase?: Phase
+  initialDayId?: string | null
+  initialWeek?: number
   onClose: () => void
 }
 
-export function ImportModal({ phase, initialDayId, initialWeek, onClose }: ImportModalProps) {
+export function ImportModal({ phase, initialDayId, initialWeek = 1, onClose }: ImportModalProps) {
   const sessions = useStore((s) => s.sessions)
   const templates = useStore((s) => s.templates)
   const importSession = useStore((s) => s.importSession)
   const updatePhase = useStore((s) => s.updatePhase)
+  const addPhase = useStore((s) => s.addPhase)
+  const selectPhase = useStore((s) => s.selectPhase)
+  const setTab = useStore((s) => s.setTab)
 
-  // Default day name = current selection's name (editable; the plan may override it).
+  const isNew = !phase
   const defaultDayName =
-    phase.days.find((d) => d.id === initialDayId)?.name ?? phase.days[0]?.name ?? 'Day 1'
+    phase?.days.find((d) => d.id === initialDayId)?.name ?? phase?.days[0]?.name ?? 'Day 1'
 
   const [method, setMethod] = useState<Method>('paste')
   const [pasteText, setPasteText] = useState('')
@@ -66,9 +71,16 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
   const [headers, setHeaders] = useState<string[]>([])
   const [colMap, setColMap] = useState<ColMap | null>(null)
   const [hasHeader, setHasHeader] = useState(true)
-  const [targetWeek, setTargetWeek] = useState(Math.min(Math.max(initialWeek, 1), phase.weeks))
+  const [targetWeek, setTargetWeek] = useState(
+    phase ? Math.min(Math.max(initialWeek, 1), phase.weeks) : 1,
+  )
   const [groups, setGroups] = useState<ReviewGroup[]>([])
   const [confirmOverwrite, setConfirmOverwrite] = useState(false)
+
+  // New-phase fields
+  const [phaseName, setPhaseName] = useState('')
+  const [phaseWeeks, setPhaseWeeks] = useState(8)
+  const [phaseStart, setPhaseStart] = useState(mondayOf(todayStr()))
 
   const single = (name: string, list: ParsedExercise[]): ReviewGroup[] => [
     { id: uid(), name, rows: list },
@@ -111,7 +123,6 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     }
   }
 
-  // Re-parse the stored sheet rows, preserving the single group's id + edited name.
   const reparseSheet = (map: ColMap, header: boolean) => {
     if (!rows) return
     setGroups((prev) => [
@@ -149,7 +160,9 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     setHeaders(sheetRows[0] ?? [])
     setColMap(map)
     setHasHeader(true)
-    setGroups(single(file.name.replace(/\.[^.]+$/, '') || defaultDayName, parseSheet(sheetRows, map, true)))
+    setGroups(
+      single(file.name.replace(/\.[^.]+$/, '') || defaultDayName, parseSheet(sheetRows, map, true)),
+    )
   }
 
   const pickTemplate = (name: string, exercises: Exercise[]) => {
@@ -161,7 +174,6 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     setGroups(single(name, exercises.map((e) => ({ ...e, id: uid() }))))
   }
 
-  // Review editing
   const renameGroup = (groupId: string, name: string) => {
     setConfirmOverwrite(false)
     setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, name } : g)))
@@ -189,19 +201,42 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     .map((g) => ({ name: g.name.trim() || defaultDayName, rows: g.rows.filter((r) => r.name.trim() !== '') }))
     .filter((g) => g.rows.length > 0)
   const count = active.reduce((n, g) => n + g.rows.length, 0)
-  const overwriteNames = active
-    .filter((g) => {
-      const d = matchDay(g.name, phase.days)
-      return d && findSession({ phases: [phase], sessions }, phase.id, targetWeek, d.id)
-    })
-    .map((g) => g.name)
 
-  const apply = () => {
-    if (active.length === 0) return
+  const overwriteNames =
+    phase === undefined
+      ? []
+      : active
+          .filter((g) => {
+            const d = matchDay(g.name, phase.days)
+            return d && findSession({ phases: [phase], sessions }, phase.id, targetWeek, d.id)
+          })
+          .map((g) => g.name)
+
+  const toExerciseEntries = (list: ParsedExercise[]) => {
+    const exercises: Exercise[] = []
+    const entries: Record<string, Entry> = {}
+    for (const r of list) {
+      const id = uid()
+      exercises.push({
+        id,
+        name: r.name.trim(),
+        scheme: r.scheme.trim(),
+        cue: r.cue.trim(),
+        warmup: false,
+      })
+      entries[id] =
+        r.sets && r.sets.length > 0
+          ? { sets: r.sets.map((s) => ({ ...s })), notes: '', done: false }
+          : emptyEntry()
+    }
+    return { exercises, entries }
+  }
+
+  const applyIntoPhase = (target: Phase) => {
     const createdDays: Day[] = []
     const byDay = new Map<string, ParsedExercise[]>()
     for (const g of active) {
-      const existing = matchDay(g.name, [...phase.days, ...createdDays])
+      const existing = matchDay(g.name, [...target.days, ...createdDays])
       let dayId: string
       if (existing) {
         dayId = existing.id
@@ -212,43 +247,57 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
       }
       byDay.set(dayId, [...(byDay.get(dayId) ?? []), ...g.rows])
     }
-    if (createdDays.length > 0) updatePhase(phase.id, { days: [...phase.days, ...createdDays] })
+    if (createdDays.length > 0) updatePhase(target.id, { days: [...target.days, ...createdDays] })
 
-    const date = addDays(phase.startDate, (targetWeek - 1) * 7)
+    const date = addDays(target.startDate, (targetWeek - 1) * 7)
     for (const [dayId, list] of byDay) {
-      const exercises: Exercise[] = []
-      const entries: Record<string, Entry> = {}
-      for (const r of list) {
-        const id = uid()
-        exercises.push({
-          id,
-          name: r.name.trim(),
-          scheme: r.scheme.trim(),
-          cue: r.cue.trim(),
-          warmup: false,
-        })
-        entries[id] =
-          r.sets && r.sets.length > 0
-            ? { sets: r.sets.map((s) => ({ ...s })), notes: '', done: false }
-            : emptyEntry()
+      const { exercises, entries } = toExerciseEntries(list)
+      importSession({ phaseId: target.id, dayId, week: targetWeek, date, exercises, entries })
+    }
+  }
+
+  const applyNewPhase = () => {
+    const days = active.map((g) => ({ id: uid(), name: g.name }))
+    const pid = addPhase({
+      name: phaseName.trim() || 'New phase',
+      weeks: phaseWeeks,
+      startDate: phaseStart,
+      days,
+      seed: false,
+    })
+    active.forEach((g, i) => {
+      const { exercises, entries } = toExerciseEntries(g.rows)
+      importSession({ phaseId: pid, dayId: days[i].id, week: 1, date: phaseStart, exercises, entries })
+    })
+    selectPhase(pid)
+    setTab('log')
+  }
+
+  const canImport = count > 0 && (!isNew || phaseName.trim().length > 0)
+
+  const onImport = () => {
+    if (!canImport) return
+    if (isNew) {
+      applyNewPhase()
+    } else {
+      if (overwriteNames.length > 0 && !confirmOverwrite) {
+        setConfirmOverwrite(true)
+        return
       }
-      importSession({ phaseId: phase.id, dayId, week: targetWeek, date, exercises, entries })
+      applyIntoPhase(phase)
     }
     onClose()
   }
 
-  const onImport = () => {
-    if (overwriteNames.length > 0 && !confirmOverwrite) {
-      setConfirmOverwrite(true)
-      return
-    }
-    apply()
-  }
-
   const colOptions = headers.length > 0 ? headers : (rows?.[0]?.map((_, i) => `Column ${i + 1}`) ?? [])
+  const importLabel = confirmOverwrite
+    ? 'Overwrite & import'
+    : isNew
+      ? `Create phase (${count})`
+      : `Import ${count} exercise${count === 1 ? '' : 's'}`
 
   return (
-    <Modal open onClose={onClose} title="Import plan">
+    <Modal open onClose={onClose} title={isNew ? 'New phase from import' : 'Import plan'}>
       <div className="flex max-h-[68vh] flex-col gap-4 overflow-y-auto pr-1">
         {/* Method tabs */}
         <div className="flex gap-2">
@@ -350,25 +399,47 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
           </div>
         )}
 
-        {/* Target week (day(s) are set per group below) */}
-        <div className="flex items-end gap-3">
-          <Stepper
-            label="Target week"
-            value={targetWeek}
-            onChange={(v) => {
-              setTargetWeek(v)
-              setConfirmOverwrite(false)
-            }}
-            min={1}
-            max={phase.weeks}
-          />
-        </div>
+        {/* Target / new-phase controls */}
+        {isNew ? (
+          <div className="flex flex-col gap-3 rounded-md border border-line p-3">
+            <Input
+              label="Phase name"
+              value={phaseName}
+              onChange={(e) => setPhaseName(e.target.value)}
+              placeholder="e.g. Off-season block"
+              error={phaseName.trim() ? undefined : 'Name is required'}
+            />
+            <div className="flex items-end gap-3">
+              <Stepper label="Weeks" value={phaseWeeks} onChange={setPhaseWeeks} min={2} max={52} />
+              <Input
+                className="flex-1"
+                label="Monday of week 1"
+                type="date"
+                value={phaseStart}
+                onChange={(e) => setPhaseStart(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-end gap-3">
+            <Stepper
+              label="Target week"
+              value={targetWeek}
+              onChange={(v) => {
+                setTargetWeek(v)
+                setConfirmOverwrite(false)
+              }}
+              min={1}
+              max={phase.weeks}
+            />
+          </div>
+        )}
 
         {/* Review */}
         {groups.length > 0 ? (
           <ReviewList
             groups={groups}
-            dayNames={phase.days.map((d) => d.name)}
+            dayNames={phase?.days.map((d) => d.name) ?? []}
             onRenameGroup={renameGroup}
             onEdit={editRow}
             onDelete={deleteRow}
@@ -394,13 +465,11 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
           </Button>
           <Button
             onClick={onImport}
-            disabled={count === 0}
+            disabled={!canImport}
             variant={confirmOverwrite ? 'danger' : 'solid'}
             className={cn(!confirmOverwrite && 'shine-border')}
           >
-            {confirmOverwrite
-              ? 'Overwrite & import'
-              : `Import ${count} exercise${count === 1 ? '' : 's'}`}
+            {importLabel}
           </Button>
         </div>
       </div>
