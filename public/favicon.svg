@@ -1,0 +1,13 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Iron Log">
+  <rect width="512" height="512" fill="#09090b" />
+  <g fill="#f5a623">
+    <!-- bar -->
+    <rect x="146" y="240" width="220" height="32" rx="16" />
+    <!-- left plates -->
+    <rect x="120" y="188" width="36" height="136" rx="14" />
+    <rect x="86" y="212" width="30" height="88" rx="12" />
+    <!-- right plates -->
+    <rect x="356" y="188" width="36" height="136" rx="14" />
+    <rect x="396" y="212" width="30" height="88" rx="12" />
+  </g>
+</svg>

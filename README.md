@@ -11,9 +11,16 @@ A strongman / powerlifting training logbook — installable PWA.
 
 ## Status
 
-**Phase 0 — Scaffold & tooling.** Toolchain and deploy pipeline only; no app
-features yet. See the rebuild plan for later phases (design system, data layer,
-app shell, logging, import/export, PWA).
+**Phases 0–8 complete.** Design system, typed Zustand store with persistence,
+app shell, phase/competition management, session logging, multi-source import,
+weekly export + templates, and an installable offline PWA.
+
+### Install (PWA)
+
+Open the [live app](https://jphypno90.github.io/liftlog/) and use your browser's
+**Install / Add to Home Screen**. Once installed it launches standalone and works
+offline (the app shell, fonts, and data are cached locally; data persists in
+`localStorage`).
 
 ## Stack
 
