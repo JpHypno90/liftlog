@@ -17,8 +17,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 ) {
   const autoId = useId()
   const inputId = id ?? autoId
+  // `className` styles the field wrapper (layout/width), keeping the control's
+  // height and styling consistent across every usage.
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', className)}>
       {label && (
         <label htmlFor={inputId} className="text-sm font-medium text-muted">
           {label}
@@ -28,7 +30,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={inputId}
         aria-invalid={error ? true : undefined}
-        className={cn(fieldBase, 'h-10', error ? 'border-danger' : 'border-line', className)}
+        className={cn(fieldBase, 'h-10', error ? 'border-danger' : 'border-line')}
         {...rest}
       />
       {error && <p className="text-xs text-danger">{error}</p>}

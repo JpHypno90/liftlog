@@ -16,7 +16,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const autoId = useId()
   const selectId = id ?? autoId
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', className)}>
       {label && (
         <label htmlFor={selectId} className="text-sm font-medium text-muted">
           {label}
@@ -27,12 +27,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           ref={ref}
           id={selectId}
           aria-invalid={error ? true : undefined}
-          className={cn(
-            fieldBase,
-            'h-10 appearance-none pr-9',
-            error ? 'border-danger' : 'border-line',
-            className,
-          )}
+          className={cn(fieldBase, 'h-10 appearance-none pr-9', error ? 'border-danger' : 'border-line')}
           {...rest}
         >
           {children}

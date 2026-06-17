@@ -15,7 +15,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   const autoId = useId()
   const taId = id ?? autoId
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', className)}>
       {label && (
         <label htmlFor={taId} className="text-sm font-medium text-muted">
           {label}
@@ -26,7 +26,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         id={taId}
         rows={rows}
         aria-invalid={error ? true : undefined}
-        className={cn(fieldBase, 'resize-y py-2', error ? 'border-danger' : 'border-line', className)}
+        className={cn(fieldBase, 'resize-y py-2', error ? 'border-danger' : 'border-line')}
         {...rest}
       />
       {error && <p className="text-xs text-danger">{error}</p>}
