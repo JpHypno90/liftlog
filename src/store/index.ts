@@ -212,16 +212,30 @@ export function makeStore(
         return id
       },
       updatePhase: (id, patch) =>
-        set((state) => ({
-          phases: state.phases.map((p) => (p.id === id ? { ...p, ...patch, id: p.id } : p)),
-        })),
+        set((state) => {
+          const phases = state.phases.map((p) => (p.id === id ? { ...p, ...patch, id: p.id } : p))
+          // If the active phase's days changed and the selected day vanished, fall back.
+          let dayId = state.dayId
+          if (id === state.activePhaseId) {
+            const updated = phases.find((p) => p.id === id)
+            if (updated && (dayId === null || !updated.days.some((d) => d.id === dayId))) {
+              dayId = updated.days[0]?.id ?? null
+            }
+          }
+          return { phases, dayId }
+        }),
       removePhase: (id) =>
-        set((state) => ({
-          // cascade-delete this phase's sessions
-          phases: state.phases.filter((p) => p.id !== id),
-          sessions: state.sessions.filter((s) => s.phaseId !== id),
-          activePhaseId: state.activePhaseId === id ? null : state.activePhaseId,
-        })),
+        set((state) => {
+          const wasActive = state.activePhaseId === id
+          return {
+            // cascade-delete this phase's sessions
+            phases: state.phases.filter((p) => p.id !== id),
+            sessions: state.sessions.filter((s) => s.phaseId !== id),
+            activePhaseId: wasActive ? null : state.activePhaseId,
+            dayId: wasActive ? null : state.dayId,
+            week: wasActive ? 1 : state.week,
+          }
+        }),
 
       // ---- sessions ----
       startSession: ({ phaseId, dayId, week, date }) => {

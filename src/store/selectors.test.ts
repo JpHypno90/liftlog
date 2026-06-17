@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { resolveDay, lastLogged, baseExercisesFor, type DataSlice } from '@/store/selectors'
+import {
+  resolveDay,
+  lastLogged,
+  baseExercisesFor,
+  sessionsForPhase,
+  sessionsForDay,
+  type DataSlice,
+} from '@/store/selectors'
 import type { Phase, Session } from '@/types'
 
 const phase: Phase = {
@@ -55,5 +62,20 @@ describe('lastLogged', () => {
 describe('baseExercisesFor', () => {
   it('returns blank for an unknown phase', () => {
     expect(baseExercisesFor({ phases: [], sessions: [] }, 'missing', 'pull', 1)).toEqual([])
+  })
+})
+
+describe('session counts (day-deletion guard)', () => {
+  const state: DataSlice = {
+    phases: [phase],
+    sessions: [session(1, '2026-01-05'), session(2, '2026-01-12')],
+  }
+
+  it('counts sessions per phase and per day', () => {
+    expect(sessionsForPhase(state, 'p1')).toBe(2)
+    // both sample sessions are on the 'pull' day
+    expect(sessionsForDay(state, 'p1', 'pull')).toBe(2)
+    // 'push' has none → safe to delete
+    expect(sessionsForDay(state, 'p1', 'push')).toBe(0)
   })
 })

@@ -1,15 +1,7 @@
 import { Trophy } from 'lucide-react'
 import { useStore } from '@/store'
 import { Chip } from '@/components/Chip'
-import { daysUntil, todayStr } from '@/lib/date'
-
-function countdownLabel(date: string): string {
-  const d = daysUntil(date)
-  if (d <= 0) return 'Today'
-  if (d === 1) return '1 day'
-  if (d < 14) return `${d} days`
-  return `${Math.round(d / 7)} wks`
-}
+import { countdownLabel, todayStr } from '@/lib/date'
 
 export function Header() {
   const competitions = useStore((s) => s.competitions)

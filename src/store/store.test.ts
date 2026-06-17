@@ -59,6 +59,71 @@ describe('phases', () => {
   })
 })
 
+describe('phase management (Phase 4)', () => {
+  it('creates a phase with custom-named days', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const id = store.getState().addPhase({
+      name: 'Prep',
+      weeks: 10,
+      days: [
+        { id: 'd1', name: 'Squat' },
+        { id: 'd2', name: 'Bench' },
+      ],
+    })
+    const p = store.getState().phases.find((x) => x.id === id)!
+    expect(p.weeks).toBe(10)
+    expect(p.days.map((d) => d.name)).toEqual(['Squat', 'Bench'])
+  })
+
+  it('edits name, weeks, and day structure', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const id = store.getState().addPhase({ name: 'A' })
+    store.getState().updatePhase(id, {
+      name: 'Peak',
+      weeks: 3,
+      days: [{ id: 'only', name: 'Full body' }],
+    })
+    const p = store.getState().phases.find((x) => x.id === id)!
+    expect(p.name).toBe('Peak')
+    expect(p.weeks).toBe(3)
+    expect(p.days).toEqual([{ id: 'only', name: 'Full body' }])
+  })
+
+  it('falls back the selected day when the active phase loses it', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const id = store.getState().addPhase({
+      name: 'P',
+      days: [
+        { id: 'a', name: 'A' },
+        { id: 'b', name: 'B' },
+      ],
+    })
+    store.getState().selectPhase(id)
+    store.getState().setDay('b')
+    expect(store.getState().dayId).toBe('b')
+
+    // remove day 'b' from the active phase
+    store.getState().updatePhase(id, { days: [{ id: 'a', name: 'A' }] })
+    expect(store.getState().dayId).toBe('a')
+  })
+
+  it('delete cascades sessions and clears selection when active', () => {
+    const store = makeStore(memoryAdapter().adapter)
+    const id = store.getState().addPhase({ name: 'P' })
+    store.getState().startSession({ phaseId: id, dayId: 'pull', week: 1 })
+    store.getState().startSession({ phaseId: id, dayId: 'push', week: 1 })
+    store.getState().selectPhase(id)
+    expect(store.getState().sessions).toHaveLength(2)
+
+    store.getState().removePhase(id)
+    expect(store.getState().phases).toHaveLength(0)
+    expect(store.getState().sessions).toHaveLength(0)
+    expect(store.getState().activePhaseId).toBeNull()
+    expect(store.getState().dayId).toBeNull()
+    expect(store.getState().week).toBe(1)
+  })
+})
+
 describe('session start inheritance', () => {
   it('blank when nothing to inherit', () => {
     const store = makeStore(memoryAdapter().adapter)

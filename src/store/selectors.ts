@@ -9,6 +9,16 @@ export function resolveDay(phase: Phase, dayId: string): Day | undefined {
   return phase.days.find((d) => d.id === dayId)
 }
 
+/** Number of logged sessions in a phase. */
+export function sessionsForPhase(state: DataSlice, phaseId: string): number {
+  return state.sessions.filter((s) => s.phaseId === phaseId).length
+}
+
+/** Number of logged sessions on a specific day of a phase. */
+export function sessionsForDay(state: DataSlice, phaseId: string, dayId: string): number {
+  return state.sessions.filter((s) => s.phaseId === phaseId && s.dayId === dayId).length
+}
+
 /** Most-recent-first sort by week then date. */
 function recencyDesc<T extends { week: number; date: string }>(a: T, b: T): number {
   return b.week - a.week || b.date.localeCompare(a.date)

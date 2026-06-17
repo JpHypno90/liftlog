@@ -49,3 +49,13 @@ export function weekIndex(date: string, start: string): number {
 export function daysUntil(dateStr: string): number {
   return diffDays(dateStr, todayStr())
 }
+
+/** Short human countdown to a date: "Today", "1 day", "9 days", "6 wks", "past". */
+export function countdownLabel(dateStr: string): string {
+  const d = daysUntil(dateStr)
+  if (d < 0) return 'past'
+  if (d === 0) return 'Today'
+  if (d === 1) return '1 day'
+  if (d < 14) return `${d} days`
+  return `${Math.round(d / 7)} wks`
+}
