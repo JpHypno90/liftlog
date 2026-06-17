@@ -29,7 +29,7 @@ describe('matchDay', () => {
 })
 
 describe('parseText', () => {
-  it('routes lines under fuzzy-matched day headers', () => {
+  it('groups lines under day-name headers', () => {
     const raw = [
       '== Pull ==',
       'Deadlift | 3x5 | brace hard',
@@ -39,28 +39,28 @@ describe('parseText', () => {
       '',
       '----',
     ].join('\n')
-    const out = parseText(raw, 'd1', days)
-    expect(out.d1.map((e) => e.name)).toEqual(['Deadlift', 'Row'])
-    expect(out.d1[0].cue).toBe('brace hard')
-    expect(out.d1[0].sets).toHaveLength(3)
-    expect(out.d3.map((e) => e.name)).toEqual(['Yoke'])
-    expect(out.d3[0].scheme).toBe('20m') // not a known notation → text only
-    expect(out.d3[0].sets).toBeUndefined()
+    const out = parseText(raw, 'Fallback')
+    expect(out.Pull.map((e) => e.name)).toEqual(['Deadlift', 'Row'])
+    expect(out.Pull[0].cue).toBe('brace hard')
+    expect(out.Pull[0].sets).toHaveLength(3)
+    expect(out.Events.map((e) => e.name)).toEqual(['Yoke'])
+    expect(out.Events[0].scheme).toBe('20m') // not a known notation → text only
+    expect(out.Events[0].sets).toBeUndefined()
   })
 
-  it('unmatched header falls back to the fallback day', () => {
-    const out = parseText('== Cardio ==\nBike | 10min', 'd2', days)
-    expect(out.d2.map((e) => e.name)).toEqual(['Bike'])
+  it('keeps an unmatched header as its own day-name group', () => {
+    const out = parseText('== Cardio ==\nBike | 10min', 'Pull')
+    expect(out.Cardio.map((e) => e.name)).toEqual(['Bike'])
   })
 
-  it('drops blank and separator lines', () => {
-    const out = parseText('Squat\n\n====\n---\nBench', 'd1', days)
-    expect(out.d1.map((e) => e.name)).toEqual(['Squat', 'Bench'])
+  it('lines before any header go under the fallback name', () => {
+    const out = parseText('Squat\n\n====\n---\nBench', 'Day 1')
+    expect(out['Day 1'].map((e) => e.name)).toEqual(['Squat', 'Bench'])
   })
 
   it('splits a trailing scheme off a bare line', () => {
-    const out = parseText('Back Squat 3x5', 'd1', days)
-    expect(out.d1[0]).toMatchObject({ name: 'Back Squat', scheme: '3×5' })
+    const out = parseText('Back Squat 3x5', 'Day 1')
+    expect(out['Day 1'][0]).toMatchObject({ name: 'Back Squat', scheme: '3×5' })
   })
 })
 
@@ -139,6 +139,28 @@ describe('parseTable (HTML)', () => {
       { w: 80, r: 3 },
       { w: 80, r: 3 },
       { w: 80, r: 3 },
+    ])
+  })
+
+  it('detects a leading title row and uses the next row as headers', () => {
+    // Mirrors a coach's export: a merged title above the column headers.
+    const html = `
+      <table>
+        <tr><td>Pull and accessories</td></tr>
+        <tr><th>Session</th><th>Exercise</th><th>Sets</th><th>Reps</th><th>Exercise cues</th></tr>
+        <tr><td>3</td><td>Axle deficit deadlift</td><td>3</td><td>6</td><td>control</td></tr>
+      </table>`
+    const { title, headers, rows, colMap } = parseTable(html)
+    expect(title).toBe('Pull and accessories')
+    expect(headers[1]).toBe('Exercise')
+    expect(colMap).toMatchObject({ name: 1, scheme: 2, reps: 3, cue: 4 })
+    const exercises = parseSheet(rows, colMap, false)
+    expect(exercises).toHaveLength(1)
+    expect(exercises[0].name).toBe('Axle deficit deadlift')
+    expect(exercises[0].sets).toEqual([
+      { w: '', r: 6 },
+      { w: '', r: 6 },
+      { w: '', r: 6 },
     ])
   })
 })

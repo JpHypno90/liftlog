@@ -1,6 +1,4 @@
-import type { Day } from '@/types'
 import { uid } from '@/lib/id'
-import { matchDay } from '@/lib/import/matchDay'
 import { normalizeScheme } from '@/lib/import/scheme'
 import type { ParsedExercise } from '@/lib/import/types'
 
@@ -35,16 +33,14 @@ export function parseExerciseLine(line: string): ParsedExercise {
 }
 
 /**
- * Parse free text, one exercise per line. "== Day ==" / "# Day" headers switch
- * the target day via fuzzy matching; unmatched headers fall back to fallbackDayId.
+ * Parse free text, one exercise per line, grouped by day NAME. "== Day ==" /
+ * "# Day" headers start a new group keyed by the header label; lines before any
+ * header go under `fallbackName`. Day names are resolved to phase days at import
+ * time (matched or created), so the target day comes from the plan itself.
  */
-export function parseText(
-  raw: string,
-  fallbackDayId: string,
-  days: Day[],
-): Record<string, ParsedExercise[]> {
+export function parseText(raw: string, fallbackName: string): Record<string, ParsedExercise[]> {
   const out: Record<string, ParsedExercise[]> = {}
-  let current = fallbackDayId
+  let current = fallbackName
 
   for (const line of raw.split(/\r?\n/)) {
     const t = line.trim()
@@ -52,9 +48,7 @@ export function parseText(
 
     const h = t.match(HEADER)
     if (h) {
-      const label = h[1] ?? h[2] ?? ''
-      const day = matchDay(label, days)
-      current = day ? day.id : fallbackDayId
+      current = (h[1] ?? h[2] ?? '').trim() || fallbackName
       continue
     }
 

@@ -34,7 +34,15 @@ export function parseTable(html: string): TableResult {
     return { headers: [], rows: [], colMap: detectColumns([]) }
   }
 
-  const headers = allRows[0]
-  const rows = allRows.slice(1)
-  return { headers, rows, colMap: detectColumns(headers) }
+  // A leading single-cell row (e.g. a merged title) is the session name, not headers.
+  let title: string | undefined
+  let bodyStart = 0
+  if (allRows.length > 1 && allRows[0].length === 1 && allRows[1].length > 1) {
+    title = allRows[0][0]
+    bodyStart = 1
+  }
+
+  const headers = allRows[bodyStart]
+  const rows = allRows.slice(bodyStart + 1)
+  return { headers, rows, colMap: detectColumns(headers), title }
 }

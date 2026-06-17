@@ -1,5 +1,4 @@
 import { Plus, Trash2 } from 'lucide-react'
-import type { Day } from '@/types'
 import type { ParsedExercise } from '@/lib/import'
 import { Card } from '@/components/Card'
 import { Input } from '@/components/Input'
@@ -7,36 +6,58 @@ import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { formatSets } from '@/features/log/format'
 
+export interface ReviewGroup {
+  id: string
+  name: string
+  rows: ParsedExercise[]
+}
+
 export interface ReviewListProps {
-  days: Day[]
-  draft: Record<string, ParsedExercise[]>
-  onEdit: (dayId: string, rowId: string, patch: Partial<ParsedExercise>) => void
-  onDelete: (dayId: string, rowId: string) => void
-  onAdd: (dayId: string) => void
+  groups: ReviewGroup[]
+  /** Existing phase day names, offered as suggestions. */
+  dayNames: string[]
+  onRenameGroup: (groupId: string, name: string) => void
+  onEdit: (groupId: string, rowId: string, patch: Partial<ParsedExercise>) => void
+  onDelete: (groupId: string, rowId: string) => void
+  onAdd: (groupId: string) => void
 }
 
-function dayName(days: Day[], dayId: string): string {
-  return days.find((d) => d.id === dayId)?.name ?? 'Day'
-}
+const DATALIST_ID = 'import-day-names'
 
-export function ReviewList({ days, draft, onEdit, onDelete, onAdd }: ReviewListProps) {
-  const dayIds = Object.keys(draft)
-
+export function ReviewList({
+  groups,
+  dayNames,
+  onRenameGroup,
+  onEdit,
+  onDelete,
+  onAdd,
+}: ReviewListProps) {
   return (
     <div className="flex flex-col gap-5">
-      {dayIds.map((dayId) => {
-        const rows = draft[dayId]
-        const counted = rows.filter((r) => r.name.trim() !== '').length
+      <datalist id={DATALIST_ID}>
+        {dayNames.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+
+      {groups.map((group) => {
+        const counted = group.rows.filter((r) => r.name.trim() !== '').length
         return (
-          <div key={dayId} className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between">
-              <span className="font-display text-sm uppercase tracking-[0.2em] text-faint">
-                {dayName(days, dayId)}
-              </span>
-              <span className="text-xs text-muted">{counted} to import</span>
+          <div key={group.id} className="flex flex-col gap-2">
+            <div className="flex items-end justify-between gap-3">
+              <Input
+                className="flex-1"
+                label="Import to day"
+                aria-label="Target day name"
+                list={DATALIST_ID}
+                placeholder="e.g. Pull and accessories"
+                value={group.name}
+                onChange={(e) => onRenameGroup(group.id, e.target.value)}
+              />
+              <span className="pb-2 text-xs text-muted">{counted} to import</span>
             </div>
 
-            {rows.map((row) => (
+            {group.rows.map((row) => (
               <Card key={row.id} className="flex flex-col gap-2">
                 <div className="flex items-end gap-2">
                   <Input
@@ -44,13 +65,13 @@ export function ReviewList({ days, draft, onEdit, onDelete, onAdd }: ReviewListP
                     aria-label="Name"
                     placeholder="Exercise name"
                     value={row.name}
-                    onChange={(e) => onEdit(dayId, row.id, { name: e.target.value })}
+                    onChange={(e) => onEdit(group.id, row.id, { name: e.target.value })}
                   />
                   <IconButton
                     icon={Trash2}
                     variant="danger"
                     aria-label="Delete row"
-                    onClick={() => onDelete(dayId, row.id)}
+                    onClick={() => onDelete(group.id, row.id)}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -59,14 +80,14 @@ export function ReviewList({ days, draft, onEdit, onDelete, onAdd }: ReviewListP
                     aria-label="Scheme"
                     placeholder="3×5"
                     value={row.scheme}
-                    onChange={(e) => onEdit(dayId, row.id, { scheme: e.target.value })}
+                    onChange={(e) => onEdit(group.id, row.id, { scheme: e.target.value })}
                   />
                   <Input
                     className="flex-1"
                     aria-label="Cue"
                     placeholder="Cue / comment"
                     value={row.cue}
-                    onChange={(e) => onEdit(dayId, row.id, { cue: e.target.value })}
+                    onChange={(e) => onEdit(group.id, row.id, { cue: e.target.value })}
                   />
                 </div>
                 {row.sets && row.sets.length > 0 && (
@@ -77,7 +98,7 @@ export function ReviewList({ days, draft, onEdit, onDelete, onAdd }: ReviewListP
               </Card>
             ))}
 
-            <Button variant="ghost" size="sm" className="self-start" onClick={() => onAdd(dayId)}>
+            <Button variant="ghost" size="sm" className="self-start" onClick={() => onAdd(group.id)}>
               <Plus size={16} aria-hidden /> Add exercise
             </Button>
           </div>

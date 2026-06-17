@@ -20,6 +20,8 @@ export interface TableResult {
   headers: string[]
   rows: string[][]
   colMap: ColMap
+  /** A leading single-cell title row, if present (e.g. a session name). */
+  title?: string
 }
 
 export type ParseMode = 'text' | 'sheet' | 'table'

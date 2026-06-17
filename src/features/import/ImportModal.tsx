@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Upload } from 'lucide-react'
-import type { Entry, Exercise, Phase } from '@/types'
+import type { Day, Entry, Exercise, Phase } from '@/types'
 import { useStore } from '@/store'
 import { findSession } from '@/store/selectors'
 import { uid } from '@/lib/id'
@@ -8,6 +8,7 @@ import { addDays } from '@/lib/date'
 import { emptyEntry } from '@/lib/defaults'
 import {
   detectColumns,
+  matchDay,
   parseSheet,
   parseTable,
   parseText,
@@ -23,7 +24,7 @@ import { Select } from '@/components/Select'
 import { Stepper } from '@/components/Stepper'
 import { Chip } from '@/components/Chip'
 import { Button } from '@/components/Button'
-import { ReviewList } from '@/features/import/ReviewList'
+import { ReviewList, type ReviewGroup } from '@/features/import/ReviewList'
 
 type Method = 'paste' | 'upload' | 'saved'
 
@@ -52,9 +53,11 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
   const sessions = useStore((s) => s.sessions)
   const templates = useStore((s) => s.templates)
   const importSession = useStore((s) => s.importSession)
+  const updatePhase = useStore((s) => s.updatePhase)
 
-  const firstDay = phase.days[0]?.id ?? ''
-  const validInitialDay = phase.days.some((d) => d.id === initialDayId) ? initialDayId! : firstDay
+  // Default day name = current selection's name (editable; the plan may override it).
+  const defaultDayName =
+    phase.days.find((d) => d.id === initialDayId)?.name ?? phase.days[0]?.name ?? 'Day 1'
 
   const [method, setMethod] = useState<Method>('paste')
   const [pasteText, setPasteText] = useState('')
@@ -63,39 +66,32 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
   const [headers, setHeaders] = useState<string[]>([])
   const [colMap, setColMap] = useState<ColMap | null>(null)
   const [hasHeader, setHasHeader] = useState(true)
-  const [targetDayId, setTargetDayId] = useState(validInitialDay)
   const [targetWeek, setTargetWeek] = useState(Math.min(Math.max(initialWeek, 1), phase.weeks))
-  const [draft, setDraft] = useState<Record<string, ParsedExercise[]>>({})
+  const [groups, setGroups] = useState<ReviewGroup[]>([])
   const [confirmOverwrite, setConfirmOverwrite] = useState(false)
 
-  const setSheet = (
-    nextRows: string[][],
-    nextHeaders: string[],
-    nextMap: ColMap,
-    nextMode: ParseMode,
-    header: boolean,
-    dayId: string,
-  ) => {
-    setMode(nextMode)
-    setRows(nextRows)
-    setHeaders(nextHeaders)
-    setColMap(nextMap)
-    setHasHeader(header)
-    setDraft({ [dayId]: parseSheet(nextRows, nextMap, header) })
-  }
+  const single = (name: string, list: ParsedExercise[]): ReviewGroup[] => [
+    { id: uid(), name, rows: list },
+  ]
 
   const onTextareaChange = (value: string) => {
     setPasteText(value)
     setConfirmOverwrite(false)
     const sniff = sniffText(value)
     if (sniff.mode === 'sheet' && sniff.rows && sniff.colMap) {
-      setSheet(sniff.rows, sniff.rows[0] ?? [], sniff.colMap, 'sheet', true, targetDayId)
+      setMode('sheet')
+      setRows(sniff.rows)
+      setHeaders(sniff.rows[0] ?? [])
+      setColMap(sniff.colMap)
+      setHasHeader(true)
+      setGroups(single(defaultDayName, parseSheet(sniff.rows, sniff.colMap, true)))
     } else {
       setMode('text')
       setRows(null)
       setColMap(null)
       setHeaders([])
-      setDraft(parseText(value, targetDayId, phase.days))
+      const record = parseText(value, defaultDayName)
+      setGroups(Object.entries(record).map(([name, list]) => ({ id: uid(), name, rows: list })))
     }
   }
 
@@ -104,38 +100,39 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     if (html && /<table/i.test(html)) {
       e.preventDefault()
       const t = parseTable(html)
-      const tsv = [t.headers, ...t.rows].map((r) => r.join('\t')).join('\n')
-      setPasteText(tsv)
+      setPasteText([t.headers, ...t.rows].map((r) => r.join('\t')).join('\n'))
       setConfirmOverwrite(false)
-      setSheet(t.rows, t.headers, t.colMap, 'table', false, targetDayId)
+      setMode('table')
+      setRows(t.rows)
+      setHeaders(t.headers)
+      setColMap(t.colMap)
+      setHasHeader(false)
+      setGroups(single(t.title?.trim() || defaultDayName, parseSheet(t.rows, t.colMap, false)))
     }
   }
 
+  // Re-parse the stored sheet rows, preserving the single group's id + edited name.
+  const reparseSheet = (map: ColMap, header: boolean) => {
+    if (!rows) return
+    setGroups((prev) => [
+      {
+        id: prev[0]?.id ?? uid(),
+        name: prev[0]?.name ?? defaultDayName,
+        rows: parseSheet(rows, map, header),
+      },
+    ])
+  }
+
   const onColMap = (field: keyof ColMap, value: number | null) => {
-    if (!rows || !colMap || !mode) return
+    if (!colMap) return
     const next = { ...colMap, [field]: value }
     setColMap(next)
-    setDraft({ [targetDayId]: parseSheet(rows, next, hasHeader) })
+    reparseSheet(next, hasHeader)
   }
 
   const onHasHeader = (value: boolean) => {
     setHasHeader(value)
-    if (rows && colMap) setDraft({ [targetDayId]: parseSheet(rows, colMap, value) })
-  }
-
-  const onTargetDay = (dayId: string) => {
-    setTargetDayId(dayId)
-    setConfirmOverwrite(false)
-    if (mode === 'text') {
-      setDraft(parseText(pasteText, dayId, phase.days))
-    } else if (rows && colMap) {
-      setDraft({ [dayId]: parseSheet(rows, colMap, hasHeader) })
-    } else {
-      setDraft((d) => {
-        const keys = Object.keys(d)
-        return keys.length === 1 ? { [dayId]: d[keys[0]] } : d
-      })
-    }
+    if (colMap) reparseSheet(colMap, value)
   }
 
   const onFile = async (file: File) => {
@@ -145,44 +142,80 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
     const ws = wb.Sheets[wb.SheetNames[0]]
     const raw = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, blankrows: false, raw: false })
     const sheetRows = raw.map((row) => (row ?? []).map((c) => (c == null ? '' : String(c))))
+    const map = detectColumns(sheetRows[0] ?? [])
     setMethod('upload')
-    setSheet(sheetRows, sheetRows[0] ?? [], detectColumns(sheetRows[0] ?? []), 'sheet', true, targetDayId)
+    setMode('sheet')
+    setRows(sheetRows)
+    setHeaders(sheetRows[0] ?? [])
+    setColMap(map)
+    setHasHeader(true)
+    setGroups(single(file.name.replace(/\.[^.]+$/, '') || defaultDayName, parseSheet(sheetRows, map, true)))
   }
 
-  const pickTemplate = (exercises: Exercise[]) => {
+  const pickTemplate = (name: string, exercises: Exercise[]) => {
     setMode('text')
     setRows(null)
     setColMap(null)
     setHeaders([])
     setConfirmOverwrite(false)
-    setDraft({ [targetDayId]: exercises.map((e) => ({ ...e, id: uid() })) })
+    setGroups(single(name, exercises.map((e) => ({ ...e, id: uid() }))))
   }
 
   // Review editing
-  const editRow = (dayId: string, rowId: string, patch: Partial<ParsedExercise>) =>
-    setDraft((d) => ({ ...d, [dayId]: d[dayId].map((r) => (r.id === rowId ? { ...r, ...patch } : r)) }))
-  const deleteRow = (dayId: string, rowId: string) =>
-    setDraft((d) => ({ ...d, [dayId]: d[dayId].filter((r) => r.id !== rowId) }))
-  const addRow = (dayId: string) =>
-    setDraft((d) => ({
-      ...d,
-      [dayId]: [...(d[dayId] ?? []), { id: uid(), name: '', scheme: '', cue: '', warmup: false }],
-    }))
+  const renameGroup = (groupId: string, name: string) => {
+    setConfirmOverwrite(false)
+    setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, name } : g)))
+  }
+  const editRow = (groupId: string, rowId: string, patch: Partial<ParsedExercise>) =>
+    setGroups((gs) =>
+      gs.map((g) =>
+        g.id === groupId ? { ...g, rows: g.rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)) } : g,
+      ),
+    )
+  const deleteRow = (groupId: string, rowId: string) =>
+    setGroups((gs) =>
+      gs.map((g) => (g.id === groupId ? { ...g, rows: g.rows.filter((r) => r.id !== rowId) } : g)),
+    )
+  const addRow = (groupId: string) =>
+    setGroups((gs) =>
+      gs.map((g) =>
+        g.id === groupId
+          ? { ...g, rows: [...g.rows, { id: uid(), name: '', scheme: '', cue: '', warmup: false }] }
+          : g,
+      ),
+    )
 
-  const count = Object.values(draft).reduce(
-    (n, list) => n + list.filter((r) => r.name.trim() !== '').length,
-    0,
-  )
-  const overwriteDays = Object.keys(draft).filter(
-    (dayId) =>
-      draft[dayId].some((r) => r.name.trim() !== '') &&
-      findSession({ phases: phase.days.length ? [phase] : [], sessions }, phase.id, targetWeek, dayId),
-  )
+  const active = groups
+    .map((g) => ({ name: g.name.trim() || defaultDayName, rows: g.rows.filter((r) => r.name.trim() !== '') }))
+    .filter((g) => g.rows.length > 0)
+  const count = active.reduce((n, g) => n + g.rows.length, 0)
+  const overwriteNames = active
+    .filter((g) => {
+      const d = matchDay(g.name, phase.days)
+      return d && findSession({ phases: [phase], sessions }, phase.id, targetWeek, d.id)
+    })
+    .map((g) => g.name)
 
   const apply = () => {
-    for (const dayId of Object.keys(draft)) {
-      const list = draft[dayId].filter((r) => r.name.trim() !== '')
-      if (list.length === 0) continue
+    if (active.length === 0) return
+    const createdDays: Day[] = []
+    const byDay = new Map<string, ParsedExercise[]>()
+    for (const g of active) {
+      const existing = matchDay(g.name, [...phase.days, ...createdDays])
+      let dayId: string
+      if (existing) {
+        dayId = existing.id
+      } else {
+        const day = { id: uid(), name: g.name }
+        createdDays.push(day)
+        dayId = day.id
+      }
+      byDay.set(dayId, [...(byDay.get(dayId) ?? []), ...g.rows])
+    }
+    if (createdDays.length > 0) updatePhase(phase.id, { days: [...phase.days, ...createdDays] })
+
+    const date = addDays(phase.startDate, (targetWeek - 1) * 7)
+    for (const [dayId, list] of byDay) {
       const exercises: Exercise[] = []
       const entries: Record<string, Entry> = {}
       for (const r of list) {
@@ -199,27 +232,20 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
             ? { sets: r.sets.map((s) => ({ ...s })), notes: '', done: false }
             : emptyEntry()
       }
-      importSession({
-        phaseId: phase.id,
-        dayId,
-        week: targetWeek,
-        date: addDays(phase.startDate, (targetWeek - 1) * 7),
-        exercises,
-        entries,
-      })
+      importSession({ phaseId: phase.id, dayId, week: targetWeek, date, exercises, entries })
     }
     onClose()
   }
 
   const onImport = () => {
-    if (overwriteDays.length > 0 && !confirmOverwrite) {
+    if (overwriteNames.length > 0 && !confirmOverwrite) {
       setConfirmOverwrite(true)
       return
     }
     apply()
   }
 
-  const colOptions = headers.length > 0 ? headers : rows?.[0]?.map((_, i) => `Column ${i + 1}`) ?? []
+  const colOptions = headers.length > 0 ? headers : (rows?.[0]?.map((_, i) => `Column ${i + 1}`) ?? [])
 
   return (
     <Modal open onClose={onClose} title="Import plan">
@@ -239,7 +265,7 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
             <Textarea
               aria-label="Paste plan"
               rows={5}
-              placeholder={'Paste text, a spreadsheet selection, or a copied table…'}
+              placeholder="Paste text, a spreadsheet selection, or a copied table…"
               value={pasteText}
               onChange={(e) => onTextareaChange(e.target.value)}
               onPaste={onTextareaPaste}
@@ -279,7 +305,7 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
                   key={t.id}
                   variant="ghost"
                   className="justify-between"
-                  onClick={() => pickTemplate(t.exercises)}
+                  onClick={() => pickTemplate(t.name, t.exercises)}
                 >
                   <span>{t.name}</span>
                   <span className="text-xs text-faint">{t.exercises.length} exercises</span>
@@ -324,22 +350,10 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
           </div>
         )}
 
-        {/* Target controls */}
+        {/* Target week (day(s) are set per group below) */}
         <div className="flex items-end gap-3">
-          <Select
-            className="flex-1"
-            label="Target day"
-            value={targetDayId}
-            onChange={(e) => onTargetDay(e.target.value)}
-          >
-            {phase.days.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </Select>
           <Stepper
-            label="Week"
+            label="Target week"
             value={targetWeek}
             onChange={(v) => {
               setTargetWeek(v)
@@ -351,10 +365,11 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
         </div>
 
         {/* Review */}
-        {count > 0 || Object.keys(draft).length > 0 ? (
+        {groups.length > 0 ? (
           <ReviewList
-            days={phase.days}
-            draft={draft}
+            groups={groups}
+            dayNames={phase.days.map((d) => d.name)}
+            onRenameGroup={renameGroup}
             onEdit={editRow}
             onDelete={deleteRow}
             onAdd={addRow}
@@ -369,8 +384,7 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
         {confirmOverwrite && (
           <p className="text-sm text-danger">
             This will overwrite the existing session
-            {overwriteDays.length === 1 ? '' : 's'} on{' '}
-            {overwriteDays.map((id) => phase.days.find((d) => d.id === id)?.name).join(', ')} — Week{' '}
+            {overwriteNames.length === 1 ? '' : 's'} on {overwriteNames.join(', ')} — Week{' '}
             {targetWeek}.
           </p>
         )}
@@ -384,7 +398,9 @@ export function ImportModal({ phase, initialDayId, initialWeek, onClose }: Impor
             variant={confirmOverwrite ? 'danger' : 'solid'}
             className={cn(!confirmOverwrite && 'shine-border')}
           >
-            {confirmOverwrite ? 'Overwrite & import' : `Import ${count} exercise${count === 1 ? '' : 's'}`}
+            {confirmOverwrite
+              ? 'Overwrite & import'
+              : `Import ${count} exercise${count === 1 ? '' : 's'}`}
           </Button>
         </div>
       </div>
