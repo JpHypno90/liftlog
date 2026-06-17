@@ -1,0 +1,36 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-text font-body antialiased;
+  }
+}
+
+@layer components {
+  /* Animated aurora gradient wordmark text. */
+  .aurora-text {
+    background-image: linear-gradient(
+      110deg,
+      var(--accent) 0%,
+      var(--text) 25%,
+      var(--accent) 50%,
+      var(--text) 75%,
+      var(--accent) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    @apply animate-aurora;
+  }
+}

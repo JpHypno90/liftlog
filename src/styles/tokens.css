@@ -1,0 +1,18 @@
+/* Iron Log — design tokens (Phase 0 colour layer).
+   These CSS variables are the source of truth; tailwind.config.js binds to them. */
+:root {
+  /* Surfaces */
+  --canvas: #09090b;
+  --panel: #141417;
+  --card: #18181b;
+  --line: #27272a;
+
+  /* Text */
+  --text: #fafafa;
+  --muted: #a1a1aa;
+  --faint: #52525b;
+
+  /* Accent */
+  --accent: #f5a623;
+  --accent-dim: #2a2113;
+}
