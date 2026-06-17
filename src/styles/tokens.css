@@ -1,18 +1,56 @@
-/* Iron Log — design tokens (Phase 0 colour layer).
-   These CSS variables are the source of truth; tailwind.config.js binds to them. */
+/* Iron Log — design tokens. Single source of truth; tailwind.config.js binds to these.
+   Change a value here and it cascades to every primitive that uses the bound utility. */
 :root {
-  /* Surfaces */
+  /* ---- Surfaces ---- */
   --canvas: #09090b;
   --panel: #141417;
   --card: #18181b;
   --line: #27272a;
 
-  /* Text */
+  /* ---- Text ---- */
   --text: #fafafa;
   --muted: #a1a1aa;
   --faint: #52525b;
 
-  /* Accent */
+  /* ---- Accent ---- */
   --accent: #f5a623;
   --accent-dim: #2a2113;
+
+  /* ---- Danger (destructive actions) ---- */
+  --danger: #ef4444;
+  --danger-dim: #2a1416;
+
+  /* ---- Decorative ---- */
+  --scrim: rgba(0, 0, 0, 0.6); /* modal backdrop */
+  --dot: #1d1d22; /* dot-grid dots */
+  --glow: rgba(139, 92, 246, 0.1); /* faint violet canvas glow */
+
+  /* ---- Type scale ---- */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+
+  /* ---- Spacing (4-based) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radius ---- */
+  --r-sm: 7px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* ---- Elevation / card treatment ---- */
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 1px 2px 0 rgba(0, 0, 0, 0.4),
+    0 8px 24px -8px rgba(0, 0, 0, 0.55);
 }
