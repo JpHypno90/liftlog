@@ -20,6 +20,12 @@
   --danger: #ef4444;
   --danger-dim: #2a1416;
 
+  /* ---- Paper (printable / screenshot sheet — high contrast on white) ---- */
+  --paper: #ffffff;
+  --ink: #18181b;
+  --ink-soft: #52525b;
+  --paper-line: #d4d4d8;
+
   /* ---- Decorative ---- */
   --scrim: rgba(0, 0, 0, 0.6); /* modal backdrop */
   --dot: #1d1d22; /* dot-grid dots */

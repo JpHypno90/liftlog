@@ -17,6 +17,10 @@ export default {
         danger: 'var(--danger)',
         'danger-dim': 'var(--danger-dim)',
         scrim: 'var(--scrim)',
+        paper: 'var(--paper)',
+        ink: 'var(--ink)',
+        'ink-soft': 'var(--ink-soft)',
+        'paper-line': 'var(--paper-line)',
       },
       fontFamily: {
         display: ['Oswald', 'system-ui', 'sans-serif'],

@@ -91,3 +91,26 @@
     --shine-angle: 360deg;
   }
 }
+
+/* Print: show only the export sheet, never the app chrome. */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible !important;
+  }
+  .print-sheet {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

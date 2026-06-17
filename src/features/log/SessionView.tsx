@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/date'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { ExerciseCard } from '@/features/log/ExerciseCard'
+import { SaveTemplateModal } from '@/features/log/SaveTemplateModal'
 
 export interface SessionViewProps {
   session: Session
@@ -13,7 +14,7 @@ export interface SessionViewProps {
   phase?: Phase
 }
 
-export function SessionView({ session }: SessionViewProps) {
+export function SessionView({ session, phase }: SessionViewProps) {
   const editing = useStore((s) => s.editing)
   const setEditing = useStore((s) => s.setEditing)
   const addExercise = useStore((s) => s.addExercise)
@@ -21,6 +22,10 @@ export function SessionView({ session }: SessionViewProps) {
   const setSessionDate = useStore((s) => s.setSessionDate)
 
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [templateOpen, setTemplateOpen] = useState(false)
+
+  const dayName = phase?.days.find((d) => d.id === session.dayId)?.name ?? 'Session'
+  const templateName = `${phase?.name ?? 'Quick'} · ${dayName}`
 
   return (
     <div className="flex flex-col gap-3">
@@ -77,9 +82,8 @@ export function SessionView({ session }: SessionViewProps) {
             variant="ghost"
             size="sm"
             className="self-start"
-            onClick={() => {
-              /* Save as template arrives in Phase 7 */
-            }}
+            disabled={session.exercises.length === 0}
+            onClick={() => setTemplateOpen(true)}
           >
             <Save size={16} aria-hidden /> Save as template
           </Button>
@@ -114,6 +118,14 @@ export function SessionView({ session }: SessionViewProps) {
             </Button>
           )}
         </div>
+      )}
+
+      {templateOpen && (
+        <SaveTemplateModal
+          session={session}
+          defaultName={templateName}
+          onClose={() => setTemplateOpen(false)}
+        />
       )}
     </div>
   )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Dumbbell, Download, ChevronRight } from 'lucide-react'
+import { Dumbbell, Download, Share, ChevronRight } from 'lucide-react'
 import { useStore } from '@/store'
 import { findSession } from '@/store/selectors'
 import { addDays, todayStr, weekIndex, countdownLabel, formatDate } from '@/lib/date'
@@ -10,6 +10,7 @@ import { DayTabs } from '@/features/log/DayTabs'
 import { SessionView } from '@/features/log/SessionView'
 import { WorkoutPreview } from '@/features/log/WorkoutPreview'
 import { CreatePhaseModal } from '@/features/log/CreatePhaseModal'
+import { ExportModal } from '@/features/log/ExportModal'
 import { ImportModal } from '@/features/import/ImportModal'
 
 export function LogScreen() {
@@ -27,6 +28,7 @@ export function LogScreen() {
   const startLooseSession = useStore((s) => s.startLooseSession)
 
   const [importOpen, setImportOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [createPhaseFor, setCreatePhaseFor] = useState<string | null>(null)
 
   // The most recent loose (phaseless) session, if any.
@@ -148,14 +150,24 @@ export function LogScreen() {
         <h1 className="font-display text-xl text-text">
           {selectedDay.name} · Week {selectedWeek}
         </h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Import plan"
-          onClick={() => setImportOpen(true)}
-        >
-          <Download size={16} aria-hidden /> Import
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Export week"
+            onClick={() => setExportOpen(true)}
+          >
+            <Share size={16} aria-hidden /> Export
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Import plan"
+            onClick={() => setImportOpen(true)}
+          >
+            <Download size={16} aria-hidden /> Import
+          </Button>
+        </div>
       </div>
 
       {/* Workspace */}
@@ -177,6 +189,10 @@ export function LogScreen() {
           initialWeek={selectedWeek}
           onClose={() => setImportOpen(false)}
         />
+      )}
+
+      {exportOpen && (
+        <ExportModal phase={phase} week={selectedWeek} onClose={() => setExportOpen(false)} />
       )}
     </section>
   )
